@@ -1,0 +1,607 @@
+<!DOCTYPE html>
+<html lang="es-MX">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Expediente Técnico Ejecutivo · Amadeus–Red Hat · OSS y Turismo (v8)</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Merriweather:wght@400;700&display=swap');
+    :root{ --ink:#0a0f1f; --blue:#0e2d59; --accent:#ff2a2a; }
+    html,body{height:100%}
+    body{
+      font-family:'Inter',system-ui,-apple-system,Segoe UI,Roboto,Arial;
+      background: radial-gradient(1400px 900px at -10% -10%, #e5f4ff, transparent 60%),
+                  radial-gradient(1200px 800px at 120% 120%, #ffe6f7, transparent 55%),
+                  #eef2f7;
+      display:flex;justify-content:center;align-items:center;min-height:100vh;perspective:2400px;overflow:hidden;color:#273043;
+    }
+    #book-container{width:96%;max-width:1280px;height:88vh;position:relative;transform-style:preserve-3d}
+    .page{
+      position:absolute;width:100%;height:100%;background:#fff;border-radius:16px;
+      box-shadow:0 24px 60px rgba(0,0,0,.12);transform-origin:left center;
+      transition:transform .85s cubic-bezier(.65,0,.35,1),opacity .6s ease;
+      overflow-y:auto;padding:3rem 3.6rem 7.2rem;transform-style:preserve-3d;backface-visibility:hidden;opacity:0;z-index:1;
+    }
+    .page.visible{transform:rotateY(0deg);opacity:1;z-index:10}
+    .page.flipped{transform:rotateY(-180deg);opacity:0;z-index:1}
+    .page h1,.page h2{font-family:'Merriweather',serif;color:#0e1a33}
+    .page h1{font-size:1.8rem;margin-bottom:1rem;border-bottom:2px solid var(--accent);padding-bottom:.7rem}
+    .page h2{font-size:1.2rem;margin-top:1.2rem;margin-bottom:.6rem;color:#8c1123}
+    .page p{line-height:1.95;margin:.6rem 0;text-align:justify}
+    .page ul{list-style:square;padding-left:1.4rem}.page li{margin:.35rem 0}
+    
+    .cover{display:flex;flex-direction:column;justify-content:space-between;align-items:center;height:100%;
+      padding:3.4rem;border-radius:16px;position:relative;color:#fff;
+      background: radial-gradient(1400px 700px at 90% -10%, rgba(25,227,255,.25), transparent 60%),
+                  radial-gradient(900px 600px at -10% 110%, rgba(255,72,196,.25), transparent 60%),
+                  linear-gradient(135deg,#071a30,#0e2d59 50%, #0b1b33 100%);overflow:hidden;}
+    .cover .ring{position:absolute;inset:-24px;border:2px solid rgba(25,227,255,.22);border-radius:24px;
+      box-shadow:0 0 24px rgba(25,227,255,.35), inset 0 0 24px rgba(255,72,196,.18);animation:pulse 7s ease-in-out infinite}
+    @keyframes pulse{0%,100%{opacity:.55}50%{opacity:1}}
+    .neon-title{font-size:2.9rem;letter-spacing:.4px;color:#fff;margin:.2rem 0 1rem;
+      text-shadow:0 0 8px rgba(25,227,255,.85), 0 0 24px rgba(25,227,255,.65), 0 0 42px rgba(255,72,196,.35)}
+    .neon-sub{max-width:880px;color:#e2f5ff;text-shadow:0 0 5px rgba(255,72,196,.25)}
+    .chip{display:inline-block;background:rgba(255,255,255,.08);border:1px solid rgba(25,227,255,.35);color:#e8faff;
+      border-radius:999px;padding:.35rem .85rem;font-size:.8rem;backdrop-filter:blur(4px)}
+    .corner-id{position:absolute;right:2rem;top:1.2rem;text-align:right;line-height:1.35}
+    .corner-id p{margin:0;color:#eaf6ff;text-shadow:0 1px 2px rgba(0,0,0,.35)}
+    
+    #navigation{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);display:flex;gap:1rem;align-items:center;z-index:1000}
+    #navigation button{background:#0b142a;color:#fff;padding:.75rem 1.5rem;border:none;border-radius:50px;font-weight:700;cursor:pointer;
+      transition:all .25s ease;box-shadow:0 10px 28px rgba(10,16,32,.36)}
+    #navigation button:hover:not(:disabled){background:#ff2a2a;transform:translateY(-2px) scale(1.02)}
+    #navigation button:disabled{background:#8a98b2;cursor:not-allowed}
+    #page-counter{font-weight:700;color:#0b142a}
+    #progress{position:fixed;bottom:0;left:0;height:4px;background:linear-gradient(90deg,#ff2a2a,#ff7a7a,#19e3ff);width:0%;transition:width .35s ease;z-index:1200}
+    #page-rail{position:fixed;right:16px;top:50%;transform:translateY(-50%);display:flex;flex-direction:column;gap:10px;z-index:1100}
+    .dot{width:12px;height:12px;border-radius:50%;background:#c9d4e6;border:2px solid #e7effc;cursor:pointer;position:relative;
+      transition:transform .2s ease, box-shadow .2s ease, background .2s ease;box-shadow:0 0 0 2px rgba(25,227,255,.14),0 0 10px rgba(25,227,255,.25)}
+    .dot.active{background:#19e3ff;box-shadow:0 0 12px rgba(25,227,255,.8),0 0 24px rgba(255,72,196,.35)}
+    .dot::after{content:attr(data-title);position:absolute;right:140%;top:50%;transform:translateY(-50%);white-space:nowrap;background:#0b142a;
+      color:#eaf6ff;padding:.25rem .5rem;border-radius:6px;font-size:.75rem;opacity:0;pointer-events:none;transition:opacity .2s ease;
+      box-shadow:0 10px 20px rgba(0,0,0,.25)}
+    .dot:hover::after{opacity:1}
+   
+    .toc li{padding:.4rem 0;border-bottom:1px dashed #e2e8f0;cursor:pointer}.toc li:last-child{border-bottom:none}
+    .kbd{border:1px solid #cbd5e1;border-bottom-width:3px;background:#f8fafc;padding:.1rem .35rem;border-radius:6px}
+    .callout{border-left:4px solid #ff2a2a;background:#fff7f7;border-radius:6px;padding:.9rem 1rem}
+    .chart-box{background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:12px}
+    canvas{max-width:100%}
+    .modal{position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;align-items:center;justify-content:center;z-index:1300}
+    .modal .card{background:#fff;max-width:860px;width:92%;border-radius:14px;box-shadow:0 30px 80px rgba(0,0,0,.35);padding:1.4rem 1.6rem}
+  </style>
+</head>
+<body>
+  <div id="book-container">
+    
+    <section class="page visible" id="page-0" data-title="Portada">
+      <div class="cover">
+        <div class="ring"></div>
+        <div class="corner-id text-sm">
+          <p><strong>Alumno:</strong> Alberto Azcarate Salazar</p>
+          <p><strong>Docente:</strong> Francisco Jacob Ávila Camacho</p>
+        </div>
+        <div class="w-full text-left">
+          <p class="text-lg opacity-95"><strong>Universidad Nacional Rosario Castellanos</strong></p>
+        </div>
+        <div class="text-center">
+          <div class="mb-6 text-xs uppercase tracking-widest"><span class="chip">LTIC · Semestre 8 · Bloque 1 · G 802 · Turno en línea</span></div>
+          <h1 class="neon-title">Expediente Técnico Ejecutivo</h1>
+          <p class="neon-sub mt-2">Alianza de tecnologías abiertas entre <strong>Amadeus</strong> y <strong>Red Hat</strong> para servicios críticos de viaje. Documento con enfoque de arquitectura, gobernanza de código abierto y comercialización turística.</p>
+        </div>
+        <div class="text-left text-sm w-full leading-7 opacity-95">
+          <p><strong>Unidad 3:</strong> Problemáticas de la distribución de código abierto</p>
+          <p><strong>Foro de reforzamiento:</strong> Colaboración en beneficio de los servicios</p>
+          <p><strong>Delegación:</strong> Gustavo A. Madero</p>
+        </div>
+      </div>
+    </section>
+
+   
+    <section class="page" id="page-1" data-title="Índice general">
+      <h1>Índice general</h1>
+      <ul id="toc" class="toc list-none pl-0 mt-2"></ul>
+      <div class="mt-6 p-5 bg-gray-50 rounded-lg">
+        <h2>Uso</h2>
+        <p>El índice se genera automáticamente a partir de los títulos de cada sección. Puedes navegar con <span class="kbd">←</span>/<span class="kbd">→</span>, rueda del ratón, o con el <em>page-rail</em> de la derecha.</p>
+      </div>
+    </section>
+
+    
+    <section class="page" id="page-2" data-title="1. Resumen ejecutivo">
+      <h1>1. Resumen ejecutivo</h1>
+      <p>Este expediente analiza, desde un ángulo estrictamente técnico y de gestión, la alianza entre Amadeus y Red Hat para modernizar plataformas de misión crítica del sector viajes. Se pone énfasis en la homogeneización de despliegues mediante Red Hat OpenShift, la portabilidad multicloud y la observabilidad fina de extremo a extremo. La combinación de estándares abiertos con soporte empresarial aporta previsibilidad al ciclo de vida y reduce riesgos de integración.</p>
+      <p>El análisis incluye el marco de gobernanza del software libre, la clasificación de licencias y las obligaciones derivadas, así como la aplicación de OpenChain (ISO/IEC 5230) y la generación de SBOM como instrumento de trazabilidad y respuesta a vulnerabilidades. Desde la óptica comercial, se examinan los efectos de una plataforma abierta sobre la velocidad de integración de terceros, la oferta dinámica y los modelos de monetización basados en APIs.</p>
+      <p>Las conclusiones proponen líneas de acción para sostener la ventaja competitiva: disciplina operativa de SRE, automatización del cumplimiento OSS, y una estrategia de ecosistema que alinee incentivos entre aerolíneas, OTAs, TMCs y proveedores de valor agregado.</p>
+    </section>
+
+    
+    <section class="page" id="page-3" data-title="2. Colaboración Amadeus–Red Hat (compatibilidad OSS)">
+      <h1>2. Colaboración Amadeus–Red Hat (compatibilidad OSS)</h1>
+      <p>La compatibilidad se fundamenta en tres pilares: una capa de orquestación estándar, un catálogo curado de componentes de código abierto con soporte, y un modelo operativo que obliga a la reproducibilidad. Con OpenShift, la gestión de microservicios es uniforme: construcción, firma, promoción entre ambientes y despliegues progresivos con controles de admisión.</p>
+      <p>La colaboración trasciende una simple adopción de producto. Red Hat aporta ingeniería de referencia, guías de seguridad, matrices de compatibilidad y soporte 24/7; Amadeus aporta los requisitos de escala, picos de demanda y resiliencia de un negocio global. Esa simbiosis reduce fricción en nuevos lanzamientos y permite incorporar capacidades de la comunidad con criterios de calidad industrial.</p>
+    </section>
+
+  
+    <section class="page" id="page-4" data-title="2.1 Arquitectura de referencia (ACS + OpenShift)">
+      <h1>2.1 Arquitectura de referencia (ACS + OpenShift)</h1>
+      <p>La arquitectura se divide en cuatro capas. La capa de entrega controla acceso, enrutamiento, autenticación y observabilidad perimetral. La capa de aplicaciones estandariza patrones 12-factor, contratos de API y despliegues gradualistas con canarios y ventanas de mantenimiento. La capa de datos gobierna operadores de bases, replicación, cifrado y políticas de retención. La capa de operación centraliza telemetría, capacidad y respuesta a incidentes.</p>
+      <ul>
+        <li><strong>Borde:</strong> API Gateway, WAF, limitación de tasa y malla de servicios para resiliencia transversal.</li>
+        <li><strong>Aplicaciones:</strong> contenedores inmutables, SBOM por artefacto y promoción controlada.</li>
+        <li><strong>Datos:</strong> replicación síncrona/asíncrona, snapshots consistentes y cifrado en reposo y tránsito.</li>
+        <li><strong>Operación:</strong> tableros SRE, alertas basadas en objetivos de servicio y automatización de remediación.</li>
+      </ul>
+      <div class="callout mt-3"><strong>Nota:</strong> los diagramas exactos de Amadeus son privativos; se ilustran patrones públicos de CNCF y Red Hat.</div>
+    </section>
+
+    
+    <section class="page" id="page-5" data-title="2.2 Modelo operativo DevSecOps">
+      <h1>2.2 Modelo operativo DevSecOps</h1>
+      <p>La seguridad se integra en el pipeline. Cada dependencia se inventaría, cada imagen se firma y se somete a escaneo antes de producción. Los riesgos se valoran con métricas objetivas y se documentan mitigaciones. Las reglas de despliegue bloquean artefactos con vulnerabilidades críticas no resueltas y exigen evidencia de aprobación.</p>
+      <ul>
+        <li><strong>SBOM continuo:</strong> generación automática por build, versiones firmadas y publicación interna.</li>
+        <li><strong>Controles de admisión:</strong> políticas <em>policy as code</em>, mínimos privilegios y nombres de servicio rotados.</li>
+        <li><strong>Gestión de secretos:</strong> bóvedas auditables y rotación periódica.</li>
+        <li><strong>Auditoría:</strong> firmas, actas y retención conforme a normativa.</li>
+      </ul>
+    </section>
+
+    
+    <section class="page" id="page-6" data-title="2.3 Observabilidad y confiabilidad (SRE)">
+      <h1>2.3 Observabilidad y confiabilidad (SRE)</h1>
+      <p>La práctica de SRE prioriza la experiencia de usuario y el aprendizaje operativo. Los SLO se definen por servicio y canal, se instrumentan métricas y trazas correlacionadas, y se ejecutan ensayos de resiliencia para detectar fallas silenciosas. La capacidad se dimensiona con señales de saturación y autoescalado controlado por objetivos.</p>
+      <ul>
+        <li><strong>Telemetría:</strong> métricas RED, trazas distribuidas y logs con contexto de negocio.</li>
+        <li><strong>Capacidad:</strong> autoescalado por latencia, colas de protección y <em>circuit breakers</em>.</li>
+        <li><strong>Prevención:</strong> análisis de causa raíz y postmortems orientados a mejora continua.</li>
+      </ul>
+    </section>
+
+   
+    <section class="page" id="page-7" data-title="3. Marco regulatorio y legalidad del OSS">
+      <h1>3. Marco regulatorio y legalidad del OSS</h1>
+      <p>El uso empresarial de OSS requiere una política formal con roles, procesos y evidencias. Las licencias permisivas (MIT, Apache-2.0, BSD) imponen atribución y compatibilidad amplia; las de copyleft (GPL, LGPL, AGPL) exigen reciprocidad en distribución o provisión por red (AGPL). Se emplean matrices internas para decidir usos aceptables y aislar componentes cuando sea necesario.</p>
+      <p>La política incorpora mecanismos de aprobación previa, revisión de salud de proyectos, actividad de comunidad y trayectoria de seguridad. Las obligaciones de aviso, textos de licencia y entrega de código modificado se documentan y automatizan en el pipeline para evitar errores manuales.</p>
+    </section>
+
+   
+    <section class="page" id="page-8" data-title="3.1 OpenChain (ISO/IEC 5230) y SBOM">
+      <h1>3.1 OpenChain (ISO/IEC 5230) y SBOM</h1>
+      <p>OpenChain formaliza procesos repetibles para cumplir obligaciones de licencia a lo largo de la cadena de suministro. La certificación valida que existen políticas, formación y registros verificables. Los SBOM aportan inventarios por versión con componentes, licencias y hashes firmados, facilitando respuesta a vulnerabilidades de terceros.</p>
+      <ul>
+        <li><strong>Formación:</strong> módulos obligatorios y evaluación anual para roles técnicos y legales.</li>
+        <li><strong>Automatización:</strong> SCA integrado en CI/CD con reglas de bloqueo por severidad.</li>
+        <li><strong>Publicación:</strong> avisos y textos de licencia junto con binarios cuando aplique.</li>
+      </ul>
+    </section>
+
+    
+    <section class="page" id="page-9" data-title="4. Comercialización y venta de servicios turísticos">
+      <h1>4. Comercialización y venta de productos y servicios turísticos</h1>
+      <p>Las plataformas abiertas reducen fricción de integración para OTAs y TMCs y habilitan la oferta dinámica. La documentación versionada, entornos de prueba y SDKs oficiales reducen el tiempo de salida al mercado. La medición por canal permite ajustar inversiones y optimizar la experiencia.</p>
+      <ul>
+        <li><strong>Oferta dinámica:</strong> reglas de tarifa y disponibilidad por segmento, inventario y canal.</li>
+        <li><strong>Alianzas:</strong> programas de certificación, co-desarrollo y soporte diferenciado.</li>
+        <li><strong>Monetización:</strong> consumo medido, paquetes y acuerdos enterprise.</li>
+      </ul>
+    </section>
+
+  
+    <section class="page" id="page-10" data-title="4.1 Canales, métricas y distribución omnicanal">
+      <h1>4.1 Canales, métricas y distribución omnicanal</h1>
+      <p>Una estrategia omnicanal equilibrada preserva margen y datos en el canal directo, y amplía cobertura con intermediarios. Se requieren reglas claras para evitar canibalización y garantizar paridad tarifaria. Los indicadores de eficiencia del embudo y la latencia por canal deben observarse con granularidad.</p>
+      <ul>
+        <li><strong>KPIs:</strong> conversión, <em>look-to-book</em>, <em>attach rate</em>, ADR, cancelación, latencia API.</li>
+        <li><strong>Experiencia:</strong> tiempos de respuesta y errores por etapa: búsqueda, detalle, carrito y pago.</li>
+        <li><strong>Catálogo:</strong> coherencia de stock y precio entre canales y regiones.</li>
+      </ul>
+    </section>
+
+   
+    <section class="page" id="page-11" data-title="4.2 Monetización por API">
+      <h1>4.2 Monetización por API</h1>
+      <p>Un programa de APIs sostenible define SLA explícitos, límites de uso, reportes y rutas de soporte. La adopción se impulsa con portal de desarrolladores, SDKs y ejemplos mínimos ejecutables. Las políticas de deprecación, comunicación y compatibilidad evitan roturas y reducen costos de mantenimiento para terceros.</p>
+      <ul>
+        <li><strong>Planes:</strong> prueba, estándar y enterprise con soporte técnico dedicado.</li>
+        <li><strong>Gobierno:</strong> versionado semántico, ventanas de deprecación y guías de migración.</li>
+        <li><strong>Éxito del partner:</strong> métricas de <em>time-to-first-call</em> y tasa libre de error.</li>
+      </ul>
+    </section>
+
+    
+    <section class="page" id="page-12" data-title="5. Conclusiones estratégicas">
+      <h1>5. Conclusiones estratégicas</h1>
+      <p>La adopción disciplinada de plataformas abiertas con soporte empresarial revela una relación directa entre estandarización y velocidad de entrega. La uniformidad de despliegue sobre OpenShift habilita portabilidad y escalabilidad sin sacrificar control operacional; esto es crítico en un sector sometido a picos abruptos y a la necesidad de continuidad.</p>
+      <p>La gobernanza de OSS y la certificación de procesos (OpenChain) se convierten en una capacidad estratégica. La combinación de políticas claras, automatización de cumplimiento y SBOM verificables reduce incertidumbre jurídica y fortalece la confianza con clientes y auditores.</p>
+      <p>En comercialización, la estrategia de APIs —respaldada por métricas de experiencia— facilita integraciones rápidas, ofertas dinámicas y modelos de negocio flexibles. La ventaja competitiva sostenible emerge de la convergencia entre excelencia técnica, gobierno de licencias y un ecosistema que alinea incentivos de socios y clientes.</p>
+    </section>
+
+    
+    <section class="page" id="page-13" data-title="Apéndice A · KPIs (interactivos)">
+      <h1>Apéndice A. KPIs interactivos con análisis de sensibilidad multivariable</h1>
+      <p>Modifica los datos y observa cómo se actualizan las gráficas. Al presionar <em>Analizar</em>, un <strong>modelo no lineal de sensibilidad multivariable</strong> estima los efectos marginales de <strong>latencia</strong> y <strong>Look-to-Book</strong> sobre la <strong>conversión</strong>. El sistema muestra una explicación ejecutiva con hallazgos prácticos.</p>
+
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-4">
+        <div class="lg:col-span-1 p-4 border rounded-md bg-white">
+          <h2 class="mb-2">Entrada de datos (12 periodos)</h2>
+          <label class="block text-sm font-semibold mt-2">Latencia p95 (ms)</label>
+          <textarea id="inLatency" class="w-full border rounded p-2 text-sm" rows="3">420,410,395,360,345,332,320,310,295,285,270,260</textarea>
+
+          <label class="block text-sm font-semibold mt-3">Look-to-Book (relación)</label>
+          <textarea id="inL2B" class="w-full border rounded p-2 text-sm" rows="3">1200,1150,1100,1050,1000,980,960,940,920,900,880,860</textarea>
+
+          <label class="block text-sm font-semibold mt-3">Conversión (%)</label>
+          <textarea id="inConv" class="w-full border rounded p-2 text-sm" rows="3">1.6,1.7,1.8,1.9,2.0,2.05,2.1,2.2,2.25,2.3,2.35,2.4</textarea>
+
+          <div class="flex items-center gap-2 mt-3">
+            <button id="btnUpdate" class="px-4 py-2 rounded bg-sky-700 text-white font-semibold">Actualizar gráficas</button>
+            <button id="btnAnalyze" class="px-4 py-2 rounded bg-rose-700 text-white font-semibold">Analizar sensibilidad</button>
+          </div>
+          <p class="text-xs text-slate-500 mt-2">Formato: 12 valores separados por coma. El sistema valida longitud y números.</p>
+        </div>
+
+        <div class="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div class="chart-box">
+            <h2>Latencia p95 del API (ms)</h2>
+            <canvas id="chartLatency" width="560" height="300" aria-label="Gráfica de latencia"></canvas>
+          </div>
+          <div class="chart-box">
+            <h2>Look-to-Book y Conversión (%)</h2>
+            <canvas id="chartL2B" width="560" height="300" aria-label="Gráfica L2B y Conversión"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <ul class="mt-5">
+        <li><strong>Etiquetas:</strong> eje X = Periodo (mes), ejes Y con unidades; valores numéricos impresos en cada punto.</li>
+        <li><strong>Interactividad:</strong> al actualizar, se recalculan escalas y se redibuja con animación suave.</li>
+        <li><strong>Modelo:</strong> análisis de sensibilidad multivariable no lineal con salida sigmoide; sensibilidades numéricas interpretables.</li>
+      </ul>
+    </section>
+
+   
+    <section class="page" id="page-14" data-title="Apéndice B · Riesgos y mitigación">
+      <h1>Apéndice B. Riesgos y mitigación</h1>
+      <p>La matriz de riesgos prioriza prevención, detección temprana y recuperación. Se asocian indicadores de alerta, responsables de respuesta y criterios de cierre. Los ejercicios de simulación y la documentación de decisiones fomentan aprendizaje organizacional y reducen tiempos de restauración.</p>
+      <ul>
+        <li><strong>Licencias:</strong> incompatibilidades, reciprocidad y divulgación de modificaciones.</li>
+        <li><strong>Seguridad:</strong> vulnerabilidades críticas, secretos expuestos y cadena de suministro.</li>
+        <li><strong>Proveedor:</strong> bloqueo tecnológico mitigado con estándares y planes de portabilidad probada.</li>
+        <li><strong>Operación:</strong> degradaciones por picos, 5xx y latencias fuera de objetivo.</li>
+      </ul>
+    </section>
+
+    
+    <section class="page" id="page-15" data-title="Apéndice C · Glosario">
+      <h1>Apéndice C. Glosario</h1>
+      <p><strong>SBOM:</strong> inventario de componentes y licencias por versión; facilita auditorías y respuesta a incidentes de terceros.</p>
+      <p><strong>OpenChain:</strong> norma de proceso (ISO/IEC 5230) que certifica la capacidad de cumplir obligaciones OSS de forma consistente.</p>
+      <p><strong>OpenShift:</strong> plataforma de contenedores basada en Kubernetes, con soporte empresarial y ciclo de vida definido.</p>
+    </section>
+
+    
+    <section class="page" id="page-16" data-title="Referencias">
+      <h1>Referencias</h1>
+      <ol class="space-y-2 text-sm leading-7">
+        <li>Amadeus. (2021). <em>Código abierto</em> [Blog]. https://amadeus.com/es/tema/codigo-abierto</li>
+        <li>Red Hat, Inc. (2021). <em>Convierta su inversión en resultados que puedan medirse. Servicios y soporte</em>. https://www.redhat.com/es/services</li>
+        <li>Red Hat Services. (2020). <em>Close the gap between what you know and what you need</em> [E-book]. https://www.redhat.com/en/engage/do-more-with-red-hat-services-ebook</li>
+        <li>CNCF. (2018, marzo 6). <em>Case study: Amadeus</em>. https://www.cncf.io/case-studies/amadeus/</li>
+        <li>Open Source Guides. (s. f.). <em>The legal side of open source</em>. https://opensource.guide/legal/</li>
+        <li>Open Source Initiative. (s. f.). <em>OSI approved licenses</em>. https://opensource.org/licenses</li>
+        <li>OpenChain Project. (2020, diciembre 15). <em>OpenChain 2.1 is ISO/IEC 5230:2020</em>. https://openchainproject.org/news/2020/12/15/openchain-2-1-is-iso5230</li>
+        <li>ISO. (2020). <em>ISO/IEC 5230:2020 – OpenChain Specification</em>. https://www.iso.org/standard/81039.html</li>
+        <li>UNED. (2021). <em>Comercialización turística global</em> [PDF]. https://multimedia.uned.ac.cr/pem/comercializacion_turistica/doc/comercializacion_turistica_global.pdf</li>
+        <li>Sernatur. (2018). <em>Elementos para la gestión de destinos turísticos</em> [PDF]. https://www.sernatur.cl/wp-content/uploads/2018/11/Manual-de-Destinos-Elementos-para-la-gestio%CC%81n-de-destinos-turisticos-1.pdf</li>
+      </ol>
+    </section>
+  </div>
+
+  
+  <div id="navigation" role="navigation" aria-label="Paginación">
+    <button id="prev" disabled>&laquo; Anterior</button>
+    <div id="page-counter">Página 1 de 17</div>
+    <button id="next">Siguiente &raquo;</button>
+  </div>
+  <div id="progress"></div>
+  <div id="page-rail" aria-label="Marcadores de página"></div>
+
+  
+  <div id="modal" class="modal">
+    <div class="card">
+      <div class="flex justify-between items-start">
+        <h2 class="text-xl font-bold">Explicación ejecutiva (modelo de sensibilidad)</h2>
+        <button id="closeModal" class="px-3 py-1 rounded bg-slate-800 text-white">Cerrar</button>
+      </div>
+      <div id="modalBody" class="mt-3 text-sm leading-7"></div>
+    </div>
+  </div>
+
+  <audio id="bg-music" loop autoplay preload="auto">
+    <source src="https://cdn.pixabay.com/audio/2022/11/21/audio_1aa9b3b628.mp3" type="audio/mpeg">
+    Tu navegador no soporta el elemento de audio.
+  </audio>
+
+<script>
+/* ===== Control de música ===== */
+(function(){
+  const music = document.getElementById('bg-music');
+  if (music) {
+    music.volume = 0.15; // Volumen bajo para no ser molesto
+
+    const playMusicOnInteraction = () => {
+      const promise = music.play();
+      if (promise !== undefined) {
+        promise.catch(error => {
+          console.warn("La reproducción automática sigue bloqueada. Se necesita otra interacción.", error);
+        }).then(() => {
+          // Una vez que la música empieza, ya no necesitamos los listeners
+          document.body.removeEventListener('click', playMusicOnInteraction);
+          document.body.removeEventListener('keydown', playMusicOnInteraction);
+        });
+      }
+    };
+
+    // Intento de reproducción automática inicial
+    const initialPromise = music.play();
+    if (initialPromise !== undefined) {
+      initialPromise.catch(error => {
+        console.warn("La reproducción automática fue bloqueada por el navegador. Se activará con la primera interacción.", error);
+        // Si falla, preparamos listeners para el primer clic o tecla
+        document.body.addEventListener('click', playMusicOnInteraction, { once: true });
+        document.body.addEventListener('keydown', playMusicOnInteraction, { once: true });
+      });
+    }
+  }
+})();
+
+/* ===== Navegación + Índice ===== */
+(function(){
+  const pages = Array.from(document.querySelectorAll('.page'));
+  const prevBtn = document.getElementById('prev');
+  const nextBtn = document.getElementById('next');
+  const counter = document.getElementById('page-counter');
+  const progress = document.getElementById('progress');
+  const rail = document.getElementById('page-rail');
+  const toc = document.getElementById('toc');
+  let i = 0, total = pages.length;
+
+  function buildTOC(){
+    if(!toc) return;
+    toc.innerHTML = "";
+    pages.forEach((p, idx) => {
+      if(idx < 2) return;
+      const li = document.createElement('li');
+      li.textContent = p.getAttribute('data-title') || `Página ${idx+1}`;
+      li.className = "text-sky-900 hover:text-rose-600";
+      li.addEventListener('click', () => { i = idx; update(); });
+      toc.appendChild(li);
+    });
+  }
+  function buildRail(){
+    rail.innerHTML = "";
+    pages.forEach((p, idx) => {
+      const dot = document.createElement('div');
+      dot.className = "dot";
+      dot.setAttribute('data-title', p.getAttribute('data-title') || `Página ${idx+1}`);
+      dot.addEventListener('click', () => { i = idx; update(); });
+      rail.appendChild(dot);
+    });
+  }
+  function updateRail(){ [...rail.children].forEach((d, idx) => d.classList.toggle('active', idx === i)); }
+  function update(){
+    pages.forEach((p, idx)=>{
+      p.classList.remove('visible','flipped');
+      if(idx === i){ p.classList.add('visible'); p.scrollTop = 0; }
+      else if(idx < i){ p.classList.add('flipped'); }
+    });
+    prevBtn.disabled = i===0; nextBtn.disabled = i===total-1;
+    counter.textContent = `Página ${i+1} de ${total}`;
+    progress.style.width = `${((i+1)/total)*100}%`;
+    updateRail();
+    if(pages[i].id === 'page-13' && typeof window.redrawCharts === 'function'){ window.redrawCharts(); }
+  }
+  nextBtn.addEventListener('click', ()=>{ if(i<total-1){ i++; update(); } });
+  prevBtn.addEventListener('click', ()=>{ if(i>0){ i--; update(); } });
+  document.addEventListener('keydown', (e)=>{
+    if(e.target.tagName === 'TEXTAREA') return; // No cambiar de página si se escribe en un textarea
+    if(e.key === 'ArrowRight' || e.key === 'PageDown') nextBtn.click();
+    if(e.key === 'ArrowLeft' || e.key === 'PageUp') prevBtn.click();
+  });
+  let lock=false;
+  document.addEventListener('wheel', (e)=>{
+    if(lock) return; lock=true; setTimeout(()=>lock=false, 320);
+    if(e.deltaY>10) nextBtn.click(); else if(e.deltaY<-10) prevBtn.click();
+  }, {passive:true});
+  buildTOC(); buildRail(); update();
+})();
+
+
+const months = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
+let chartLatency, chartL2B;
+
+
+function showCustomAlert(message) {
+    const modal = document.getElementById('modal');
+    const modalBody = document.getElementById('modalBody');
+    document.querySelector('#modal h2').textContent = 'Error en los datos';
+    modalBody.innerHTML = `<p class="text-center text-lg">${message}</p>`;
+    modal.style.display = 'flex';
+}
+
+function parseSeries(id){
+  const raw = document.getElementById(id).value.split(',').map(s => parseFloat(s.trim())).filter(v => !isNaN(v));
+  if(raw.length !== 12) {
+    showCustomAlert(`Error de datos: La serie '${id}' debe tener 12 valores numéricos separados por coma.`);
+    throw new Error(`Invalid data series length for '${id}'.`);
+  }
+  return raw;
+}
+
+function createCharts() {
+    const c1 = document.getElementById('chartLatency');
+    const ctx1 = c1.getContext('2d');
+    chartLatency = new Chart(ctx1, {
+        type: 'line',
+        data: { labels: months, datasets: [] },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: { y: { title: { display: true, text: 'Milisegundos (p95)' } } }
+        }
+    });
+
+    const c2 = document.getElementById('chartL2B');
+    const ctx2 = c2.getContext('2d');
+    chartL2B = new Chart(ctx2, {
+        type: 'line',
+        data: { labels: months, datasets: [] },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            scales: {
+                y: { type: 'linear', position: 'left', title: { display: true, text: 'Look-to-Book (relación)' } },
+                y1: { type: 'linear', position: 'right', title: { display: true, text: 'Conversión (%)' }, grid: { drawOnChartArea: false } }
+            }
+        }
+    });
+}
+
+function redrawCharts(){
+  let lat, l2b, conv;
+  try{ lat = parseSeries('inLatency'); l2b = parseSeries('inL2B'); conv = parseSeries('inConv'); }
+  catch(e){ return; } 
+
+  if (!chartLatency) {
+      createCharts();
+  }
+
+  chartLatency.data.datasets = [{
+      label: 'Latencia p95', data: lat, borderColor: '#0ea5e9', backgroundColor: '#0ea5e920', tension: 0.1, fill: true
+  }];
+  chartLatency.update();
+
+  chartL2B.data.datasets = [
+    { label: 'Look-to-Book', data: l2b, borderColor: '#0ea5e9', backgroundColor: '#0ea5e920', yAxisID: 'y', tension: 0.1 },
+    { label: 'Conversión', data: conv, borderColor: '#f97316', backgroundColor: '#f9731620', yAxisID: 'y1', tension: 0.1 }
+  ];
+  chartL2B.update();
+}
+window.redrawCharts = redrawCharts;
+
+window.addEventListener('DOMContentLoaded', ()=>{ try{ redrawCharts(); }catch(e){} });
+const up = document.getElementById('btnUpdate'); if(up) up.addEventListener('click', redrawCharts);
+
+
+function tanh(x){ return Math.tanh(x); }
+function randn(){ let u=0,v=0; while(u===0) u=Math.random(); while(v===0) v=Math.random(); return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v); }
+
+function normalize(arr){
+  const min = Math.min(...arr), max = Math.max(...arr);
+  const scaled = arr.map(v => (v - min) / (max - min + 1e-9));
+  return {scaled, min, max};
+}
+
+function trainModel(X, y, epochs=420, lr=0.09){
+  const nx = normalize(X.map(r => r[0]));
+  const nz = normalize(X.map(r => r[1]));
+  const ny = normalize(y);
+  const N = X.length, H = 4;
+  let W1 = Array.from({length:2}, ()=> Array.from({length:H}, ()=> randn()*0.2));
+  let b1 = Array.from({length:H}, ()=> 0);
+  let W2 = Array.from({length:H}, ()=> randn()*0.2);
+  let b2 = 0;
+  for(let ep=0; ep<epochs; ep++){
+    let gW1 = Array.from({length:2}, ()=> Array(H).fill(0));
+    let gb1 = Array(H).fill(0);
+    let gW2 = Array(H).fill(0);
+    let gb2 = 0;
+    for(let i=0;i<N;i++){
+      const x1 = nx.scaled[i], x2 = nz.scaled[i];
+      const t = (y[i]-ny.min)/(ny.max-ny.min+1e-9);
+      const h = Array(H);
+      for(let j=0;j<H;j++){ const z = x1*W1[0][j] + x2*W1[1][j] + b1[j]; h[j] = Math.tanh(z); }
+      let o = b2; for(let j=0;j<H;j++){ o += h[j]*W2[j]; }
+      const yhat = 1/(1+Math.exp(-o));
+      const e = yhat - t;
+      const do_ = e * yhat * (1 - yhat);
+      for(let j=0;j<H;j++){ gW2[j] += do_*h[j]; }
+      gb2 += do_;
+      for(let j=0;j<H;j++){
+        const dh = do_ * W2[j] * (1 - h[j]*h[j]);
+        gW1[0][j] += dh * x1; gW1[1][j] += dh * x2; gb1[j] += dh;
+      }
+    }
+    for(let j=0;j<H;j++){
+      W2[j] -= lr * (gW2[j]/N);
+      b2   -= lr * (gb2/N);
+      for(let k=0;k<2;k++){ W1[k][j] -= lr * (gW1[k][j]/N); }
+      b1[j] -= lr * (gb1[j]/N);
+    }
+  }
+  function predict(x1raw, x2raw){
+    const x1 = (x1raw - nx.min)/(nx.max - nx.min + 1e-9);
+    const x2 = (x2raw - nz.min)/(nz.max - nz.min + 1e-9);
+    const Hn = 4; const h = Array(Hn);
+    for(let j=0;j<Hn;j++){ h[j] = Math.tanh(x1*W1[0][j] + x2*W1[1][j] + b1[j]); }
+    let o = b2; for(let j=0;j<Hn;j++){ o += h[j]*W2[j]; }
+    const out01 = 1/(1+Math.exp(-o));
+    const out = out01*(ny.max - ny.min) + ny.min;
+    return out;
+  }
+  function sensitivity(){
+    let sLat = 0, sL2B = 0;
+    for(let i=0;i<N;i++){
+      const base = predict(X[i][0], X[i][1]);
+      const upL  = predict(X[i][0]+100, X[i][1]);
+      const upB  = predict(X[i][0], X[i][1]+100);
+      sLat += (upL - base)/100;
+      sL2B += (upB - base)/100;
+    }
+    sLat /= N; sL2B /= N;
+    return {sLat, sL2B};
+  }
+  return {predict, sensitivity};
+}
+
+function analyze(){
+  try {
+      const lat = parseSeries('inLatency');
+      const l2b = parseSeries('inL2B');
+      const conv = parseSeries('inConv');
+      const X = lat.map((v, i) => [v, l2b[i]]);
+      const model = trainModel(X, conv, 420, 0.09);
+      const sens = model.sensitivity();
+      const last = X[X.length - 1];
+      const predNow = model.predict(last[0], last[1]);
+      const predBetter = model.predict(last[0] - 100, last[1]);
+      const body = document.getElementById('modalBody');
+      const modal = document.getElementById('modal');
+      const fmt = x => (Math.round(x * 100) / 100).toFixed(2);
+      
+      document.querySelector('#modal h2').textContent = 'Explicación ejecutiva (modelo de sensibilidad)';
+      body.innerHTML = `
+        <p>El modelo de sensibilidad multivariable (no lineal, regularizado) entrenado con tus series estima el efecto marginal de las palancas operativas sobre la conversión.</p>
+        <ul class="list-disc pl-6 mt-2">
+          <li><strong>Sensibilidad a latencia:</strong> ≈ ${fmt(sens.sLat*100)} pp por cada +100 ms (signo esperado: negativo).</li>
+          <li><strong>Sensibilidad a L2B:</strong> ≈ ${fmt(sens.sL2B*100)} pp por cada +100 en L2B.</li>
+          <li><strong>Último periodo:</strong> conversión estimada ≈ ${fmt(predNow)}%.</li>
+          <li><strong>Hipótesis:</strong> si la latencia bajara 100 ms con L2B constante, conversión ≈ ${fmt(predBetter)}%.</li>
+        </ul>
+        <p class="mt-2">Recomendación: combinar reducción de latencia p95 (back-end y CDN) con optimizaciones UX que mejoren el embudo previo a pago. Validar con pruebas A/B y despliegues progresivos.</p>
+      `;
+      modal.style.display = 'flex';
+  } catch (e) {
+      
+      console.error(e.message);
+  }
+}
+
+document.getElementById('btnAnalyze').addEventListener('click', analyze);
+document.getElementById('closeModal').addEventListener('click', ()=>{ document.getElementById('modal').style.display = 'none'; });
+</script>
+</body>
+</html>
+
